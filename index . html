@@ -13,6 +13,7 @@
     <style>
         /* CSS unificado del proyecto original */
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;700&display=swap');
+        
         body {
           margin: 0;
           font-family: 'Poppins', sans-serif;
@@ -153,6 +154,7 @@
     <script type="text/babel">
         // [Habit Controller] - Lógica de React consolidada
         const { useState, useEffect, useRef } = React;
+        
         // 🎯 Mensajes motivacionales
         const motivationalMessages = [
           "¡Vamos, tú puedes hacerlo! 💪",
@@ -164,6 +166,7 @@
           "¡Recuerda por qué empezaste! 🎯",
           "¡Tu disciplina te está haciendo fuerte! 🏋️"
         ];
+        
         // 🎨 Temas
         const themes = {
           default: { bg: "black", text: "white" },
@@ -171,15 +174,20 @@
           green: { bg: "#004d40", text: "white" },
           blue: { bg: "#001f3f", text: "white" },
           pink: { bg: "#ffb6c1", text: "black" },
-          white: { bg: "white", text: "black" }
+          white: { bg: "white", text: "black" },
+          dark_gray: { bg: "#333333", text: "white"}
         };
-        // 🎵 Sonidos (Nota: estos URLs son de ejemplo)
-        const sounds = {
-          create: new Audio("http://voicy.network/es/sounds/63I_nBc0JU24xdl-XP5vbw-correct-sound-effect"),
-          delete: new Audio("https://www.voicy.network/es/sounds/nNMAVZr3lUiVzpvmbqSaUQ-minecraft-hit-damage-sound-effect"),
-          pause: new Audio("http://voicy.network/es/sounds/y6G_0HwWcE3vJ0tDqO6-7g-minecraft-villager-ooh-sound-effect"),
-          start: new Audio("http://voicy.network/es/sounds/y6G_0HwWcE3vJ0tDqO6-7g-minecraft-villager-ooh-sound-effect")
+        
+        // 🎵 URLs de Sonidos
+        // **Advertencia:** Estas URLs HTTP pueden no funcionar en algunos navegadores modernos/entornos HTTPS.
+        // Se recomienda usar URLs HTTPS más estables.
+        const soundUrls = {
+          create: "http://voicy.network/es/sounds/63I_nBc0JU24xdl-XP5vbw-correct-sound-effect",
+          delete: "https://www.voicy.network/es/sounds/nNMAVZr3lUiVzpvmbqSaUQ-minecraft-hit-damage-sound-effect",
+          pause: "http://voicy.network/es/sounds/y6G_0HwWcE3vJ0tDqO6-7g-minecraft-villager-ooh-sound-effect",
+          start: "http://voicy.network/es/sounds/y6G_0HwWcE3vJ0tDqO6-7g-minecraft-villager-ooh-sound-effect"
         };
+        
         // --- Lógica del Contador ---
 
         // Función de formateo de tiempo (HH:MM:SS)
@@ -194,6 +202,7 @@
 
           return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         };
+        
         // Carga de estado desde localStorage (persistente)
         const loadState = (key, defaultValue) => {
           const stored = localStorage.getItem(key);
@@ -204,22 +213,77 @@
             return defaultValue;
           }
         };
+        
         // Componente Principal
         function App() {
           // Estado de la aplicación
-          const [page, setPage] = useState("home");
-          // home, colors, counters
+          const [page, setPage] = useState("home"); // home, colors, counters
           const [theme, setTheme] = useState(() => loadState("habit-theme", themes.default));
           const [habits, setHabits] = useState(() => loadState("habit-list", []));
           const [isFading, setIsFading] = useState(false);
           const intervalRef = useRef(null);
+          
+          // Estado para objetos de audio pre-cargados
+          const [loadedSounds, setLoadedSounds] = useState({});
+
+          // Pre-carga y manejo de errores de Sonidos
+          useEffect(() => {
+            const loadSounds = async () => {
+              const audioObjects = {};
+              for (const [key, url] of Object.entries(soundUrls)) {
+                try {
+                  const audio = new Audio(url);
+                  // Intento de cargar metadatos para asegurar que el archivo existe
+                  await new Promise((resolve, reject) => {
+                    // Timeout para no bloquear indefinidamente si el recurso no carga
+                    const timeout = setTimeout(() => {
+                      console.warn(`Timeout al cargar el audio para ${key}.`);
+                      resolve();
+                    }, 3000); 
+
+                    audio.addEventListener('canplaythrough', () => {
+                      clearTimeout(timeout);
+                      resolve();
+                    });
+                    audio.addEventListener('error', () => {
+                      clearTimeout(timeout);
+                      console.warn(`No se pudo cargar el audio para ${key}: ${url}`);
+                      resolve(); // Resolve para no bloquear si falla un sonido
+                    });
+                    audio.load();
+                  });
+                  audioObjects[key] = audio;
+                } catch (e) {
+                  console.error(`Fallo al crear objeto de audio para ${key}`, e);
+                }
+              }
+              setLoadedSounds(audioObjects);
+            };
+
+            loadSounds();
+          }, []);
+          
+          // Función auxiliar para reproducir sonido de forma segura
+          const playSound = (key) => {
+            const sound = loadedSounds[key];
+            if (sound) {
+              // Detener y rebobinar antes de reproducir para asegurar que siempre suena
+              sound.currentTime = 0; 
+              sound.play().catch(e => console.log(`Error de reproducción de audio (${key}):`, e));
+            } else {
+              console.log(`Advertencia: Sonido '${key}' no disponible.`);
+            }
+          }
+
           // Sincronización con localStorage
           useEffect(() => {
             localStorage.setItem("habit-theme", JSON.stringify(theme));
           }, [theme]);
+          
           useEffect(() => {
             localStorage.setItem("habit-list", JSON.stringify(habits));
           }, [habits]);
+          
           // Lógica de intervalo y cronómetro
           useEffect(() => {
             if (intervalRef.current) {
@@ -247,10 +311,11 @@
               }
             };
           }, [habits.some(h => h.isRunning)]);
-        // --- Handlers de Hábitos ---
+          
+          // --- Handlers de Hábitos ---
 
           const addHabit = () => {
-            sounds.create.play().catch(e => console.log("Error de sonido:", e));
+            playSound('create');
             const newName = prompt("Nombre del nuevo hábito/contador:");
             if (newName && newName.trim() !== "") {
               setHabits(prev => [
@@ -260,15 +325,16 @@
               setPage("counters");
             }
           };
+          
           const startHabit = (id) => {
-            sounds.start.play().catch(e => console.log("Error de sonido:", e));
+            playSound('start');
             setHabits(prev => prev.map(h => 
               h.id === id ? { ...h, isRunning: true } : h
             ));
           };
 
           const stopHabit = (id) => {
-            sounds.pause.play().catch(e => console.log("Error de sonido:", e));
+            playSound('pause');
             setHabits(prev => prev.map(h => 
               h.id === id ? { ...h, isRunning: false } : h
             ));
@@ -281,12 +347,13 @@
           };
 
           const deleteHabit = (id) => {
-             if (window.confirm("¿Seguro que quieres eliminar este contador?")) {
-                sounds.delete.play().catch(e => console.log("Error de sonido:", e));
+              if (window.confirm("¿Seguro que quieres eliminar este contador?")) {
+                playSound('delete');
                 setHabits(prev => prev.filter(h => h.id !== id));
-             }
+              }
           };
-        // --- Lógica de Navegación (con Fade) ---
+          
+          // --- Lógica de Navegación (con Fade) ---
 
           const navigate = (newPage) => {
             if (page === newPage) return;
@@ -294,16 +361,17 @@
             setTimeout(() => {
               setPage(newPage);
               setIsFading(false);
-            }, 300);
-            // Coincide con la transición CSS
+            }, 300); // Coincide con la transición CSS
           };
-        // Lógica de gestos (Swipe para móvil)
+          
+          // Lógica de gestos (Swipe para móvil)
           const handleSwipe = (direction) => {
             if (direction === "up") navigate("home");
             if (direction === "left") navigate("colors");
             if (direction === "right") navigate("counters");
           };
-        // Eventos de Touch para Swipe
+          
+          // Eventos de Touch para Swipe
           const touchStart = useRef(0);
           const onTouchStart = (e) => {
             touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -328,10 +396,12 @@
             }
             touchStart.current = 0;
           };
-        // Determina el mensaje motivacional de forma aleatoria
+          
+          // Determina el mensaje motivacional de forma aleatoria
           const currentMotivationalMessage = motivationalMessages[
             Math.floor(Math.random() * motivationalMessages.length)
           ];
+          
           return (
             <div
               className={`app ${isFading ? 'fade' : ''}`}
@@ -339,12 +409,12 @@
               onTouchStart={onTouchStart}
               onTouchEnd={onTouchEnd}
             >
-              
+          
               {page === "home" && (
                 <div className="page">
                   <h1 className="text-3xl font-bold mb-4">Controlador de Hábitos 🎯</h1>
                   <p className="message">{currentMotivationalMessage}</p>
-                 
+                  
                   <div className="flex flex-col space-y-3">
                     <button onClick={() => navigate("counters")} className="bg-blue-600 hover:bg-blue-700">
                       Mis Contadores (Tiempo) ⏱️
@@ -353,11 +423,12 @@
                       Configurar Tema de Color 🎨
                     </button>
                     <button onClick={addHabit} className="bg-indigo-600 hover:bg-indigo-700">
-                      + Nuevo Contador Ahora
+                        + Nuevo Contador Ahora
                     </button>
                   </div>
                   
-                  <p className="text-sm opacity-70 mt-4">Desliza para navegar. ⬅️ Colores | ➡️ Contadores</p>
+                  <p className="text-sm opacity-70 mt-4">Desliza para navegar.
+                    ⬅️ Colores | ➡️ Contadores</p>
                 </div>
               )}
 
@@ -372,16 +443,17 @@
                         className="color-btn"
                         style={{
                           backgroundColor: val.bg,
-                          border: val.bg === "white" ? "2px solid black" : "2px solid white"
+                          // Ajuste del borde para temas claros (white/pink) y el tema dark_gray
+                          border: key === "white" ? "2px solid #333" : (key === "pink" ? "2px solid #5a0000" : (key === "dark_gray" ? "2px solid white" : "2px solid white"))
                         }}
                         onClick={() => setTheme(val)}
                       ></div>
                     ))}
                   </div>
                   <button onClick={() => navigate("home")} className="mt-6 bg-gray-500 hover:bg-gray-600">
-                     ⬅️ Volver
+                      ⬅️ Volver
                   </button>
-              </div>
+                </div>
               )}
 
               {page === "counters" && (
@@ -406,17 +478,15 @@
                       </div>
                     ))
                   )}
-                  <div className="add-btn" 
-                  onClick={addHabit}>+</div>
+                  <div className="add-btn" onClick={addHabit}>+</div>
                   <button onClick={() => navigate("home")} className="mt-6 bg-gray-500 hover:bg-gray-600">
-                     ⬅️ Volver a Inicio
+                      ⬅️ Volver a Inicio
                   </button>
                 </div>
               )}
 
               <div className="swipe-hint text-sm opacity-50">
-                ⬅️ Colores |
-                ⬆️ Inicio | ➡️ Contadores (Desliza con el dedo)
+                ⬅️ Colores | ⬆️ Inicio | ➡️ Contadores (Desliza con el dedo)
               </div>
             </div>
           );
