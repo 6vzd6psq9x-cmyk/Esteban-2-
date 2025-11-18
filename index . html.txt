@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controlador de Hábitos 🕒</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        /* CSS unificado del proyecto original */
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;700&display=swap');
+        body {
+          margin: 0;
+          font-family: 'Poppins', sans-serif;
+          overflow: hidden;
+          color: white;
+        }
+
+        .app {
+          height: 100vh;
+          width: 100vw;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          transition: background-color 0.5s;
+          position: relative;
+        }
+
+        .page {
+          opacity: 1;
+          transform: scale(1);
+          transition: opacity 0.3s ease, transform 0.3s ease;
+          padding: 20px;
+          border-radius: 15px;
+          max-width: 90%;
+          width: 400px;
+          box-sizing: border-box;
+          text-align: center;
+        }
+
+        .app.fade .page {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+
+        .message {
+          font-size: 1.5em;
+          margin-bottom: 20px;
+          text-align: center;
+        }
+
+        button {
+          margin: 5px;
+          padding: 8px 16px;
+          border: none;
+          border-radius: 8px;
+          background-color: #444;
+          color: white;
+          cursor: pointer;
+          transition: 0.3s;
+        }
+        button:hover {
+          background-color: #666;
+        }
+
+        .color-selector {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .colors {
+          display: flex;
+          gap: 10px;
+          margin-top: 20px;
+        }
+
+        .color-btn {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          cursor: pointer;
+          transition: transform 0.2s;
+          box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        .color-btn:hover {
+          transform: scale(1.1);
+        }
+
+        .swipe-hint {
+          position: absolute;
+          bottom: 15px;
+          font-size: 0.9em;
+          opacity: 0.7;
+        }
+
+        .habit-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .habit {
+          background-color: rgba(255, 255, 255, 0.1);
+          padding: 10px 20px;
+          margin: 10px;
+          border-radius: 10px;
+          text-align: left;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        
+        .habit-name {
+          font-weight: bold;
+          font-size: 1.2em;
+          margin-bottom: 5px;
+          text-align: center;
+        }
+
+        .timer {
+          font-size: 1.8em;
+          font-weight: 700;
+          margin-bottom: 10px;
+        }
+
+        .add-btn {
+            font-size: 2em;
+            padding: 5px 15px;
+            margin-top: 20px;
+            border-radius: 50%;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: 0.3s;
+        }
+        .add-btn:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // [Habit Controller] - Lógica de React consolidada
+        const { useState, useEffect, useRef } = React;
+        // 🎯 Mensajes motivacionales
+        const motivationalMessages = [
+          "¡Vamos, tú puedes hacerlo! 💪",
+          "¡Aguanta, vas genial! 🔥",
+          "¡Sigue firme, estás progresando! 🌟",
+          "¡Nada te detiene! 🚀",
+          "¡Confía en ti, estás más cerca! 🌈",
+          "¡Hoy es un gran día para avanzar! 🌱",
+          "¡Recuerda por qué empezaste! 🎯",
+          "¡Tu disciplina te está haciendo fuerte! 🏋️"
+        ];
+        // 🎨 Temas
+        const themes = {
+          default: { bg: "black", text: "white" },
+          red: { bg: "#5a0000", text: "white" },
+          green: { bg: "#004d40", text: "white" },
+          blue: { bg: "#001f3f", text: "white" },
+          pink: { bg: "#ffb6c1", text: "black" },
+          white: { bg: "white", text: "black" }
+        };
+        // 🎵 Sonidos (Nota: estos URLs son de ejemplo)
+        const sounds = {
+          create: new Audio("http://voicy.network/es/sounds/63I_nBc0JU24xdl-XP5vbw-correct-sound-effect"),
+          delete: new Audio("https://www.voicy.network/es/sounds/nNMAVZr3lUiVzpvmbqSaUQ-minecraft-hit-damage-sound-effect"),
+          pause: new Audio("http://voicy.network/es/sounds/y6G_0HwWcE3vJ0tDqO6-7g-minecraft-villager-ooh-sound-effect"),
+          start: new Audio("http://voicy.network/es/sounds/y6G_0HwWcE3vJ0tDqO6-7g-minecraft-villager-ooh-sound-effect")
+        };
+        // --- Lógica del Contador ---
+
+        // Función de formateo de tiempo (HH:MM:SS)
+        const formatTime = (ms) => {
+          const totalSeconds = Math.floor(ms / 1000);
+          const totalMinutes = Math.floor(totalSeconds / 60);
+          const totalHours = Math.floor(totalMinutes / 60);
+
+          const seconds = totalSeconds % 60;
+          const minutes = totalMinutes % 60;
+          const hours = totalHours;
+
+          return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        };
+        // Carga de estado desde localStorage (persistente)
+        const loadState = (key, defaultValue) => {
+          const stored = localStorage.getItem(key);
+          try {
+            return stored ? JSON.parse(stored) : defaultValue;
+          } catch (e) {
+            console.error("Error cargando estado:", e);
+            return defaultValue;
+          }
+        };
+        // Componente Principal
+        function App() {
+          // Estado de la aplicación
+          const [page, setPage] = useState("home");
+          // home, colors, counters
+          const [theme, setTheme] = useState(() => loadState("habit-theme", themes.default));
+          const [habits, setHabits] = useState(() => loadState("habit-list", []));
+          const [isFading, setIsFading] = useState(false);
+          const intervalRef = useRef(null);
+          // Sincronización con localStorage
+          useEffect(() => {
+            localStorage.setItem("habit-theme", JSON.stringify(theme));
+          }, [theme]);
+          useEffect(() => {
+            localStorage.setItem("habit-list", JSON.stringify(habits));
+          }, [habits]);
+          // Lógica de intervalo y cronómetro
+          useEffect(() => {
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+            }
+
+            const runningHabits = habits.filter(h => h.isRunning);
+
+            if (runningHabits.length > 0) {
+              intervalRef.current = setInterval(() => {
+                setHabits(prevHabits => 
+                  prevHabits.map(h => {
+                    if (h.isRunning) {
+                      return { ...h, elapsed: h.elapsed + 1000 }; // Suma 1 segundo
+                    }
+                    return h;
+                  })
+                );
+              }, 1000);
+            }
+
+            return () => {
+              if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+              }
+            };
+          }, [habits.some(h => h.isRunning)]);
+        // --- Handlers de Hábitos ---
+
+          const addHabit = () => {
+            sounds.create.play().catch(e => console.log("Error de sonido:", e));
+            const newName = prompt("Nombre del nuevo hábito/contador:");
+            if (newName && newName.trim() !== "") {
+              setHabits(prev => [
+                ...prev,
+                { id: Date.now(), name: newName.trim(), elapsed: 0, isRunning: false }
+              ]);
+              setPage("counters");
+            }
+          };
+          const startHabit = (id) => {
+            sounds.start.play().catch(e => console.log("Error de sonido:", e));
+            setHabits(prev => prev.map(h => 
+              h.id === id ? { ...h, isRunning: true } : h
+            ));
+          };
+
+          const stopHabit = (id) => {
+            sounds.pause.play().catch(e => console.log("Error de sonido:", e));
+            setHabits(prev => prev.map(h => 
+              h.id === id ? { ...h, isRunning: false } : h
+            ));
+          };
+
+          const resetHabit = (id) => {
+            setHabits(prev => prev.map(h => 
+              h.id === id ? { ...h, elapsed: 0, isRunning: false } : h
+            ));
+          };
+
+          const deleteHabit = (id) => {
+             if (window.confirm("¿Seguro que quieres eliminar este contador?")) {
+                sounds.delete.play().catch(e => console.log("Error de sonido:", e));
+                setHabits(prev => prev.filter(h => h.id !== id));
+             }
+          };
+        // --- Lógica de Navegación (con Fade) ---
+
+          const navigate = (newPage) => {
+            if (page === newPage) return;
+            setIsFading(true);
+            setTimeout(() => {
+              setPage(newPage);
+              setIsFading(false);
+            }, 300);
+            // Coincide con la transición CSS
+          };
+        // Lógica de gestos (Swipe para móvil)
+          const handleSwipe = (direction) => {
+            if (direction === "up") navigate("home");
+            if (direction === "left") navigate("colors");
+            if (direction === "right") navigate("counters");
+          };
+        // Eventos de Touch para Swipe
+          const touchStart = useRef(0);
+          const onTouchStart = (e) => {
+            touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          };
+
+          const onTouchEnd = (e) => {
+            if (!touchStart.current) return;
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+
+            const diffX = endX - touchStart.current.x;
+            const diffY = endY - touchStart.current.y;
+            const threshold = 50;
+
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+              // Movimiento horizontal (Left/Right)
+              if (diffX < -threshold) handleSwipe("left");
+              if (diffX > threshold) handleSwipe("right");
+            } else {
+              // Movimiento vertical (Up/Down)
+              if (diffY < -threshold) handleSwipe("up");
+            }
+            touchStart.current = 0;
+          };
+        // Determina el mensaje motivacional de forma aleatoria
+          const currentMotivationalMessage = motivationalMessages[
+            Math.floor(Math.random() * motivationalMessages.length)
+          ];
+          return (
+            <div
+              className={`app ${isFading ? 'fade' : ''}`}
+              style={{ backgroundColor: theme.bg, color: theme.text }}
+              onTouchStart={onTouchStart}
+              onTouchEnd={onTouchEnd}
+            >
+              
+              {page === "home" && (
+                <div className="page">
+                  <h1 className="text-3xl font-bold mb-4">Controlador de Hábitos 🎯</h1>
+                  <p className="message">{currentMotivationalMessage}</p>
+                 
+                  <div className="flex flex-col space-y-3">
+                    <button onClick={() => navigate("counters")} className="bg-blue-600 hover:bg-blue-700">
+                      Mis Contadores (Tiempo) ⏱️
+                    </button>
+                    <button onClick={() => navigate("colors")} className="bg-green-600 hover:bg-green-700">
+                      Configurar Tema de Color 🎨
+                    </button>
+                    <button onClick={addHabit} className="bg-indigo-600 hover:bg-indigo-700">
+                      + Nuevo Contador Ahora
+                    </button>
+                  </div>
+                  
+                  <p className="text-sm opacity-70 mt-4">Desliza para navegar. ⬅️ Colores | ➡️ Contadores</p>
+                </div>
+              )}
+
+              {page === "colors" && (
+                <div className="page color-selector">
+                  <h2 className="text-2xl font-bold mb-4">🎨 Seleccionar Color</h2>
+                  <p className="text-sm opacity-80">Elige un tema de fondo para la aplicación:</p>
+                  <div className="colors">
+                    {Object.entries(themes).map(([key, val]) => (
+                      <div
+                        key={key}
+                        className="color-btn"
+                        style={{
+                          backgroundColor: val.bg,
+                          border: val.bg === "white" ? "2px solid black" : "2px solid white"
+                        }}
+                        onClick={() => setTheme(val)}
+                      ></div>
+                    ))}
+                  </div>
+                  <button onClick={() => navigate("home")} className="mt-6 bg-gray-500 hover:bg-gray-600">
+                     ⬅️ Volver
+                  </button>
+              </div>
+              )}
+
+              {page === "counters" && (
+                <div className="page habit-container">
+                  <h2 className="text-2xl font-bold mb-4">🕒 Mis Contadores</h2>
+                  {habits.length === 0 ? (
+                    <p className="text-lg opacity-80">¡Aún no tienes contadores! Añade uno para empezar a medir tu progreso.</p>
+                  ) : (
+                    habits.map((h) => (
+                      <div key={h.id} className="habit">
+                        <div className="habit-name">{h.name}</div>
+                        <div className="timer">{formatTime(h.elapsed)}</div>
+                        <div className="flex flex-wrap justify-center mt-2">
+                          {!h.isRunning ? (
+                            <button onClick={() => startHabit(h.id)} className="bg-green-500 hover:bg-green-600">▶️ Iniciar</button>
+                          ) : (
+                            <button onClick={() => stopHabit(h.id)} className="bg-yellow-500 hover:bg-yellow-600">⏸️ Pausar</button>
+                          )}
+                          <button onClick={() => resetHabit(h.id)} className="bg-blue-500 hover:bg-blue-600">🔁 Reiniciar</button>
+                          <button onClick={() => deleteHabit(h.id)} className="bg-red-500 hover:bg-red-600">❌ Quitar</button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <div className="add-btn" 
+                  onClick={addHabit}>+</div>
+                  <button onClick={() => navigate("home")} className="mt-6 bg-gray-500 hover:bg-gray-600">
+                     ⬅️ Volver a Inicio
+                  </button>
+                </div>
+              )}
+
+              <div className="swipe-hint text-sm opacity-50">
+                ⬅️ Colores |
+                ⬆️ Inicio | ➡️ Contadores (Desliza con el dedo)
+              </div>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+
+    </script>
+
+</body>
+</html>

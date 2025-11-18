@@ -1,0 +1,13 @@
+[build]
+  # No se necesita comando de construcción ya que es HTML estático.
+  command = ""
+  
+  # Directorio a publicar: la raíz del repositorio.
+  publish = "."
+
+# Regla de Redireccionamiento:
+# Asegura que la raíz del sitio (/) sirva nuestro archivo principal.
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
