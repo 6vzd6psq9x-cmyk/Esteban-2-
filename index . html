@@ -178,16 +178,6 @@
           dark_gray: { bg: "#333333", text: "white"}
         };
         
-        // 🎵 URLs de Sonidos
-        // **Advertencia:** Estas URLs HTTP pueden no funcionar en algunos navegadores modernos/entornos HTTPS.
-        // Se recomienda usar URLs HTTPS más estables.
-        const soundUrls = {
-          create: "http://voicy.network/es/sounds/63I_nBc0JU24xdl-XP5vbw-correct-sound-effect",
-          delete: "https://www.voicy.network/es/sounds/nNMAVZr3lUiVzpvmbqSaUQ-minecraft-hit-damage-sound-effect",
-          pause: "http://voicy.network/es/sounds/y6G_0HwWcE3vJ0tDqO6-7g-minecraft-villager-ooh-sound-effect",
-          start: "http://voicy.network/es/sounds/y6G_0HwWcE3vJ0tDqO6-7g-minecraft-villager-ooh-sound-effect"
-        };
-        
         // --- Lógica del Contador ---
 
         // Función de formateo de tiempo (HH:MM:SS)
@@ -223,57 +213,7 @@
           const [isFading, setIsFading] = useState(false);
           const intervalRef = useRef(null);
           
-          // Estado para objetos de audio pre-cargados
-          const [loadedSounds, setLoadedSounds] = useState({});
-
-          // Pre-carga y manejo de errores de Sonidos
-          useEffect(() => {
-            const loadSounds = async () => {
-              const audioObjects = {};
-              for (const [key, url] of Object.entries(soundUrls)) {
-                try {
-                  const audio = new Audio(url);
-                  // Intento de cargar metadatos para asegurar que el archivo existe
-                  await new Promise((resolve, reject) => {
-                    // Timeout para no bloquear indefinidamente si el recurso no carga
-                    const timeout = setTimeout(() => {
-                      console.warn(`Timeout al cargar el audio para ${key}.`);
-                      resolve();
-                    }, 3000); 
-
-                    audio.addEventListener('canplaythrough', () => {
-                      clearTimeout(timeout);
-                      resolve();
-                    });
-                    audio.addEventListener('error', () => {
-                      clearTimeout(timeout);
-                      console.warn(`No se pudo cargar el audio para ${key}: ${url}`);
-                      resolve(); // Resolve para no bloquear si falla un sonido
-                    });
-                    audio.load();
-                  });
-                  audioObjects[key] = audio;
-                } catch (e) {
-                  console.error(`Fallo al crear objeto de audio para ${key}`, e);
-                }
-              }
-              setLoadedSounds(audioObjects);
-            };
-
-            loadSounds();
-          }, []);
-          
-          // Función auxiliar para reproducir sonido de forma segura
-          const playSound = (key) => {
-            const sound = loadedSounds[key];
-            if (sound) {
-              // Detener y rebobinar antes de reproducir para asegurar que siempre suena
-              sound.currentTime = 0; 
-              sound.play().catch(e => console.log(`Error de reproducción de audio (${key}):`, e));
-            } else {
-              console.log(`Advertencia: Sonido '${key}' no disponible.`);
-            }
-          }
+          // *NOTA: Se han eliminado todos los estados y lógica relacionados con la carga y reproducción de sonidos.*
 
           // Sincronización con localStorage
           useEffect(() => {
@@ -312,10 +252,9 @@
             };
           }, [habits.some(h => h.isRunning)]);
           
-          // --- Handlers de Hábitos ---
+          // --- Handlers de Hábitos (sin playSound) ---
 
           const addHabit = () => {
-            playSound('create');
             const newName = prompt("Nombre del nuevo hábito/contador:");
             if (newName && newName.trim() !== "") {
               setHabits(prev => [
@@ -327,14 +266,12 @@
           };
           
           const startHabit = (id) => {
-            playSound('start');
             setHabits(prev => prev.map(h => 
               h.id === id ? { ...h, isRunning: true } : h
             ));
           };
 
           const stopHabit = (id) => {
-            playSound('pause');
             setHabits(prev => prev.map(h => 
               h.id === id ? { ...h, isRunning: false } : h
             ));
@@ -348,7 +285,6 @@
 
           const deleteHabit = (id) => {
               if (window.confirm("¿Seguro que quieres eliminar este contador?")) {
-                playSound('delete');
                 setHabits(prev => prev.filter(h => h.id !== id));
               }
           };
@@ -443,7 +379,7 @@
                         className="color-btn"
                         style={{
                           backgroundColor: val.bg,
-                          // Ajuste del borde para temas claros (white/pink) y el tema dark_gray
+                          // Ajuste del borde para temas claros
                           border: key === "white" ? "2px solid #333" : (key === "pink" ? "2px solid #5a0000" : (key === "dark_gray" ? "2px solid white" : "2px solid white"))
                         }}
                         onClick={() => setTheme(val)}
