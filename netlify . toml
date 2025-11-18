@@ -1,13 +1,13 @@
 [build]
-  # No se necesita comando de construcción ya que es HTML estático.
+  # No necesitamos un comando de construcción (build command) porque es HTML estático.
   command = ""
   
-  # Directorio a publicar: la raíz del repositorio.
+  # Directorio a publicar: la raíz del repositorio (donde está index.html).
   publish = "."
 
-# Regla de Redireccionamiento:
-# Asegura que la raíz del sitio (/) sirva nuestro archivo principal.
+# REGLA DE REDIRECCIONAMIENTO CRUCIAL PARA SPAs (Single Page Applications)
+# Esto indica que CUALQUIER ruta no encontrada ("/*") debe ser reescrita a /index.html.
 [[redirects]]
-  from = "/"
+  from = "/*"
   to = "/index.html"
   status = 200
